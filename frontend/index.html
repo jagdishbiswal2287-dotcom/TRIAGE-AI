@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TRIAGE-AI | Human-in-the-Loop Healthcare Triage Assistant</title>
+  <link rel="stylesheet" href="/static/css/styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🩺</text></svg>">
+</head>
+<body>
+
+  <!-- =========================================================================
+       NON-DIAGNOSTIC TOP NOTICE BANNER
+       ========================================================================= -->
+  <header class="disclaimer-banner" role="alert" data-i18n="disclaimer">
+    ⚠️ <strong>NON-DIAGNOSTIC PROTOCOL:</strong> TRIAGE-AI does NOT diagnose diseases, prescribe medication, or replace qualified medical personnel. Generated priority categories are decision-support markers for clinical review only.
+  </header>
+
+  <!-- =========================================================================
+       APPLICATION HEADER & NAVBAR
+       ========================================================================= -->
+  <nav class="navbar">
+    <div class="brand">
+      <div class="brand-icon">⚕</div>
+      <div class="brand-title">
+        <h1>TRIAGE-AI <span class="brand-badge">Clinical Intake</span></h1>
+        <div class="brand-subtitle" data-i18n="brandSubtitle">Human-in-the-Loop Healthcare Triage Assistant</div>
+      </div>
+    </div>
+
+    <div class="nav-controls">
+      <!-- Multilingual Selector -->
+      <select id="languageSelect" class="lang-select" aria-label="Select Interface Language">
+        <option value="en">English</option>
+        <option value="hi">हिन्दी (Hindi)</option>
+        <option value="ta">தமிழ் (Tamil)</option>
+      </select>
+
+      <!-- Section Tabs -->
+      <div class="nav-tabs">
+        <button id="tabIntake" class="nav-tab active" data-i18n="tabIntake">New Patient Intake</button>
+        <button id="tabQueue" class="nav-tab" data-i18n="tabQueue">Reviewer Queue</button>
+        <button id="tabProtocols" class="nav-tab" data-i18n="tabGuidelines">Triage Protocols</button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- =========================================================================
+       MAIN CONTAINER
+       ========================================================================= -->
+  <main class="main-container">
+
+    <!-- 1-Click Hackathon Presets Bar -->
+    <section class="presets-bar" aria-label="Demo Presets">
+      <span class="presets-label" data-i18n="presetsLabel">⚡ Quick Demo Presets:</span>
+      <div id="presetsContainer" style="display:inline-flex; gap:8px; flex-wrap:wrap;">
+        <!-- Injected via JavaScript -->
+      </div>
+    </section>
+
+    <!-- Header Stats Row -->
+    <section class="stats-grid" aria-label="Queue Metrics">
+      <div class="stat-card">
+        <div class="stat-info">
+          <h3>Total Intakes</h3>
+          <div id="statTotal" class="stat-value">0</div>
+        </div>
+        <span class="stat-badge" style="background:var(--secondary-light); color:var(--secondary);">Queue</span>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-info">
+          <h3>Pending Review</h3>
+          <div id="statPending" class="stat-value">0</div>
+        </div>
+        <span class="stat-badge" style="background:#fef3c7; color:#b45309;">Awaiting MD</span>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-info">
+          <h3>Cat 1 (Immediate)</h3>
+          <div id="statCat1" class="stat-value" style="color:var(--cat1-red);">0</div>
+        </div>
+        <span class="stat-badge" style="background:var(--cat1-bg); color:var(--cat1-red);">🚨 Red</span>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-info">
+          <h3>Cat 2 (Very Urgent)</h3>
+          <div id="statCat2" class="stat-value" style="color:var(--cat2-orange);">0</div>
+        </div>
+        <span class="stat-badge" style="background:var(--cat2-bg); color:var(--cat2-orange);">⚠️ Orange</span>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-info">
+          <h3>Cat 3 (Moderate)</h3>
+          <div id="statCat3" class="stat-value" style="color:var(--cat3-yellow);">0</div>
+        </div>
+        <span class="stat-badge" style="background:var(--cat3-bg); color:var(--cat3-yellow);">⏱️ Yellow</span>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-info">
+          <h3>Cat 4 (Routine)</h3>
+          <div id="statCat4" class="stat-value" style="color:var(--cat4-green);">0</div>
+        </div>
+        <span class="stat-badge" style="background:var(--cat4-bg); color:var(--cat4-green);">🟢 Green</span>
+      </div>
+    </section>
+
+    <!-- =======================================================================
+         SECTION 1: PATIENT INTAKE & LIVE TRIAGE SUMMARY
+         ======================================================================= -->
+    <section id="sectionIntake" class="intake-layout">
+      
+      <!-- Left Column: Patient Intake Form -->
+      <div class="intake-column">
+        <form id="intakeForm">
+          
+          <!-- Card 1: Patient Demographics -->
+          <div class="card">
+            <div class="card-header">
+              <h2 data-i18n="cardPatientInfo">👤 1. Patient Demographics</h2>
+            </div>
+            <div class="card-body">
+              <div class="form-grid-3">
+                <div class="form-group" style="grid-column: span 2;">
+                  <label for="fullName" data-i18n="fullName">Full Name *</label>
+                  <input type="text" id="fullName" class="form-control" placeholder="e.g. Ramesh Kumar" required>
+                </div>
+                <div class="form-group">
+                  <label for="age" data-i18n="age">Age (Years) *</label>
+                  <input type="number" id="age" class="form-control" min="0" max="130" placeholder="e.g. 45" required>
+                </div>
+              </div>
+
+              <div class="form-grid-3">
+                <div class="form-group">
+                  <label for="gender" data-i18n="gender">Gender *</label>
+                  <select id="gender" class="form-control">
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="contactPhone" data-i18n="phone">Contact Phone</label>
+                  <input type="tel" id="contactPhone" class="form-control" placeholder="+91 98765 43210">
+                </div>
+                <div class="form-group">
+                  <label for="location" data-i18n="location">Center / Location</label>
+                  <input type="text" id="location" class="form-control" placeholder="PHC Rampur / Camp 1">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 2: Vital Signs -->
+          <div class="card">
+            <div class="card-header">
+              <h2 data-i18n="cardVitals">❤️ 2. Vital Signs</h2>
+              <span class="sub-label">Automatic vital stability evaluation</span>
+            </div>
+            <div class="card-body">
+              <div class="form-grid-5">
+                <div class="form-group">
+                  <label for="systolicBp">Systolic BP <span class="sub-label">(mmHg)</span></label>
+                  <input type="number" id="systolicBp" class="form-control" placeholder="120">
+                </div>
+                <div class="form-group">
+                  <label for="diastolicBp">Diastolic BP <span class="sub-label">(mmHg)</span></label>
+                  <input type="number" id="diastolicBp" class="form-control" placeholder="80">
+                </div>
+                <div class="form-group">
+                  <label for="heartRate">Heart Rate <span class="sub-label">(BPM)</span></label>
+                  <input type="number" id="heartRate" class="form-control" placeholder="75">
+                </div>
+                <div class="form-group">
+                  <label for="spo2">SpO2 <span class="sub-label">(%)</span></label>
+                  <input type="number" id="spo2" class="form-control" placeholder="98">
+                </div>
+                <div class="form-group">
+                  <label for="temperatureF">Temp <span class="sub-label">(°F)</span></label>
+                  <input type="number" step="0.1" id="temperatureF" class="form-control" placeholder="98.6">
+                </div>
+                <div class="form-group">
+                  <label for="respiratoryRate">Resp Rate <span class="sub-label">(/min)</span></label>
+                  <input type="number" id="respiratoryRate" class="form-control" placeholder="18">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 3: Symptoms & Medical History -->
+          <div class="card">
+            <div class="card-header">
+              <h2 data-i18n="cardSymptoms">📝 3. Presenting Symptoms & Timeline</h2>
+            </div>
+            <div class="card-body">
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label for="chiefComplaint" data-i18n="chiefComplaint">Chief Complaint (Primary Symptom) *</label>
+                  <input type="text" id="chiefComplaint" class="form-control" placeholder="e.g. Severe chest tightness, high fever, or wheezing" required>
+                </div>
+                <div class="form-group">
+                  <label for="duration" data-i18n="duration">Symptom Duration *</label>
+                  <input type="text" id="duration" class="form-control" placeholder="e.g. 2 hours, 3 days, or sudden onset">
+                </div>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 14px;">
+                <label for="symptomDetails">
+                  <span data-i18n="symptomDetails">Detailed Symptom Narrative</span>
+                  <span class="sub-label">(Type or use live microphone dictation)</span>
+                </label>
+                <div class="input-with-action">
+                  <textarea id="symptomDetails" class="form-control" placeholder="Describe symptoms, radiation, associated sweating, vomiting, triggers, etc..."></textarea>
+                  <button type="button" id="voiceBtn" class="voice-btn" title="Click to dictate symptoms with microphone">🎙️</button>
+                </div>
+              </div>
+
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label for="allergies" data-i18n="allergies">Known Allergies</label>
+                  <input type="text" id="allergies" class="form-control" placeholder="e.g. Penicillin, Sulfa, Dust, or None">
+                </div>
+                <div class="form-group">
+                  <label for="medicalHistory" data-i18n="medicalHistory">Past Medical History</label>
+                  <input type="text" id="medicalHistory" class="form-control" placeholder="e.g. Hypertension, Diabetes, Asthma, None">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 4: Medical Report & OCR Upload -->
+          <div class="card">
+            <div class="card-header">
+              <h2 data-i18n="cardReport">📄 4. Medical / Lab Report Upload (Optional)</h2>
+              <span class="sub-label">Modular OCR text & blood marker extractor</span>
+            </div>
+            <div class="card-body">
+              <input type="file" id="reportFileInput" style="display:none;" accept=".pdf,.png,.jpg,.jpeg">
+              
+              <div id="reportDropzone" class="dropzone" role="button" tabindex="0">
+                <div class="dropzone-icon">📁</div>
+                <div class="dropzone-text" data-i18n="dropzoneText">Click or Drag & Drop Medical / Lab Report</div>
+                <div class="dropzone-sub" data-i18n="dropzoneSub">Supports PDF documents and Image files (PNG, JPG) up to 10MB</div>
+              </div>
+
+              <!-- OCR Results Preview Box -->
+              <div id="ocrPreviewBox" class="ocr-preview-box" style="display:none;">
+                <span class="ocr-badge">OCR Text & Lab Extraction Result</span>
+                <div id="ocrFilename" style="font-weight:700; margin-bottom:4px;"></div>
+                <pre id="ocrExtractedText" style="white-space:pre-wrap; font-family:inherit; font-size:0.78rem; background:#fff; padding:8px; border:1px solid #e2e8f0; border-radius:4px; max-height:120px; overflow-y:auto;"></pre>
+                
+                <div style="margin-top:8px;">
+                  <strong style="font-size:0.75rem;">Detected Clinical Parameters:</strong>
+                  <div id="ocrMarkersList" class="markers-list"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Form Action Buttons -->
+          <div class="form-actions">
+            <button type="button" id="btnPreview" class="btn btn-secondary" data-i18n="btnPreview">
+              ⚡ Live AI Prioritization Preview
+            </button>
+            <button type="submit" id="btnSubmit" class="btn btn-primary" data-i18n="btnSubmit">
+              ✓ Save & Queue for Clinical Review
+            </button>
+            <button type="button" id="btnClear" class="btn btn-secondary" data-i18n="btnClear">
+              Clear Form
+            </button>
+          </div>
+
+        </form>
+      </div>
+
+      <!-- Right Column: AI Triage Summary Panel -->
+      <div class="summary-column">
+        <div class="card" style="position:sticky; top:110px;">
+          <div class="card-header" style="flex-direction: column; align-items: flex-start; gap: 4px;">
+            <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
+              <h2 data-i18n="cardSummary">🩺 Non-Diagnostic Triage Summary</h2>
+              <span class="brand-badge">Clinical Support</span>
+            </div>
+            <div style="font-size: 0.75rem; color: var(--cat2-orange); font-weight: 600; margin-top: 4px;">
+              AI-assisted information organization — requires qualified clinical review.
+            </div>
+          </div>
+          <div class="card-body">
+
+            <!-- Review Priority Banner -->
+            <div id="priorityBanner" class="priority-banner green">
+              <div id="priorityIcon" class="priority-icon-box">📋</div>
+              <div class="priority-text">
+                <h3 id="priorityTitle">Category 4: Standard / Routine</h3>
+                <p id="priorityDesc">Awaiting intake details or preset selection...</p>
+              </div>
+            </div>
+
+            <!-- Vital & Symptom Red Flags -->
+            <div id="clinicalFlagsBox" class="alert-box alert-danger" style="display:none;">
+              <div class="alert-title">🚨 Immediate Vital & Clinical Red Flags:</div>
+              <ul id="clinicalFlagsList" class="alert-list"></ul>
+            </div>
+
+            <!-- Flagged Missing Information -->
+            <div id="missingInfoBox" class="alert-box alert-warning" style="display:none;">
+              <div class="alert-title" data-i18n="missingInfoTitle">⚠️ Information Gaps:</div>
+              <ul id="missingInfoList" class="alert-list"></ul>
+            </div>
+
+            <!-- Targeted Screening Questions -->
+            <div style="margin-bottom: 16px;">
+              <h3 style="font-size: 0.88rem; font-weight:700; margin-bottom:8px;" data-i18n="screeningQuestionsTitle">
+                ❓ Targeted Screening Questions for Health Worker:
+              </h3>
+              <div id="screeningQuestionsList" class="questions-list">
+                <div class="question-item">Enter symptoms to generate tailored clinical screening questions.</div>
+              </div>
+            </div>
+
+            <!-- Structured Clinical Intake Note -->
+            <div>
+              <h3 style="font-size: 0.88rem; font-weight:700; margin-bottom:8px;" data-i18n="clinicalNoteTitle">
+                📄 Structured Clinical Intake Note:
+              </h3>
+              <div id="triageNoteBox" class="triage-note-box">
+Clinical summary will be automatically generated upon entering symptoms.
+              </div>
+            </div>
+
+            <!-- Safety Note -->
+            <div style="margin-top:14px; font-size:0.75rem; color:var(--text-muted); border-top:1px solid var(--border); padding-top:10px;">
+              🛡️ <strong>Safety Guarantee:</strong> All outputs must be verified by a qualified medical officer or registered clinician before diagnosis or therapy.
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- =======================================================================
+         SECTION 2: QUALIFIED REVIEWER QUEUE
+         ======================================================================= -->
+    <section id="sectionQueue" style="display:none;">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h2 data-i18n="queueTitle">🩺 Qualified Reviewer Queue</h2>
+            <div class="sub-label" data-i18n="queueSubtitle">Patients awaiting clinician evaluation sorted by emergency triage category</div>
+          </div>
+        </div>
+
+        <div class="card-body">
+          <!-- Filter Controls -->
+          <div class="queue-filters">
+            <input type="text" id="queueSearch" class="form-control" placeholder="Search patient name, ID, or symptom..." style="max-width:300px;">
+            
+            <select id="queueStatusFilter" class="form-control" style="max-width:180px;">
+              <option value="">All Review Statuses</option>
+              <option value="PENDING">Pending Review</option>
+              <option value="IN_REVIEW">In Review</option>
+              <option value="COMPLETED">Completed</option>
+            </select>
+
+            <select id="queueCategoryFilter" class="form-control" style="max-width:200px;">
+              <option value="">All Triage Categories</option>
+              <option value="1">Category 1 (Immediate - Red)</option>
+              <option value="2">Category 2 (Very Urgent - Orange)</option>
+              <option value="3">Category 3 (Urgent - Yellow)</option>
+              <option value="4">Category 4 (Routine - Green)</option>
+            </select>
+          </div>
+
+          <!-- Queue Table -->
+          <div class="table-responsive">
+            <table class="triage-table">
+              <thead>
+                <tr>
+                  <th data-i18n="colPriority">Priority</th>
+                  <th data-i18n="colPatient">Patient Info</th>
+                  <th data-i18n="colComplaint">Chief Complaint</th>
+                  <th data-i18n="colVitals">Vitals Summary</th>
+                  <th data-i18n="colStatus">Status</th>
+                  <th data-i18n="colAction">Action</th>
+                </tr>
+              </thead>
+              <tbody id="queueTableBody">
+                <!-- Injected via JavaScript -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =======================================================================
+         SECTION 3: TRIAGE PROTOCOLS & CLINICAL GUIDELINES
+         ======================================================================= -->
+    <section id="sectionProtocols" style="display:none;">
+      <div class="card">
+        <div class="card-header">
+          <h2>📚 Clinical Triage Prioritization Protocols</h2>
+          <span class="brand-badge">ESI / Manchester Aligned</span>
+        </div>
+        <div class="card-body" style="line-height:1.7;">
+          <h3 style="color:var(--cat1-red); margin-bottom:4px;">Category 1: Immediate / Resuscitation (Red)</h3>
+          <p style="margin-bottom:12px; font-size:0.9rem;">
+            Immediate life-threat or critical instability. Requires zero wait time and immediate transfer to resuscitation or qualified emergency physician. 
+            Criteria include: severe hypoxia (SpO2 &lt; 90%), extreme bradycardia (&lt;45 bpm) or severe tachycardia (&gt;140 bpm), hypotensive collapse (SBP &lt; 85 mmHg), severe respiratory distress (&gt;32/min), active convulsions, or crushing chest pain radiating to arm/jaw with cold diaphoresis.
+          </p>
+
+          <h3 style="color:var(--cat2-orange); margin-bottom:4px;">Category 2: Very Urgent / High Risk (Orange)</h3>
+          <p style="margin-bottom:12px; font-size:0.9rem;">
+            High-risk presentations, severe pain, or significantly altered vital signs. Target review within 10–15 minutes.
+            Criteria include: acute asthma exacerbation with audible wheezing, infant high fever (&gt;100.4°F in &lt;2yo), severe hypertension (SBP &ge; 190 or DBP &ge; 120), persistent vomiting with dehydration signs, or sudden worst headache of life.
+          </p>
+
+          <h3 style="color:var(--cat3-yellow); margin-bottom:4px;">Category 3: Urgent / Moderate Risk (Yellow)</h3>
+          <p style="margin-bottom:12px; font-size:0.9rem;">
+            Moderate acute discomfort with stable vital signs. Target review within 30–60 minutes.
+            Criteria include: localized abdominal pain without signs of shock, moderate fever with normal vitals, suspected minor fractures, productive cough without hypoxia.
+          </p>
+
+          <h3 style="color:var(--cat4-green); margin-bottom:4px;">Category 4: Standard / Routine (Green)</h3>
+          <p style="margin-bottom:16px; font-size:0.9rem;">
+            Mild, non-urgent, or chronic medical conditions with completely stable vital signs. Suitable for standard outpatient consultation.
+            Criteria include: mild seasonal cold, superficial abrasions, routine repeat prescriptions.
+          </p>
+
+          <div class="alert-box alert-info">
+            <strong>Human-in-the-Loop Safeguard:</strong> TRIAGE-AI provides intake structuring and preliminary severity grouping. A human triage nurse or doctor retains complete authority to adjust priority categories based on clinical bedside evaluation.
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- =========================================================================
+       REVIEWER SIGN-OFF MODAL
+       ========================================================================= -->
+  <div id="reviewModal" class="modal-backdrop" role="dialog" aria-modal="true">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>🩺 Qualified Clinician Sign-Off</h3>
+        <button type="button" id="modalCloseBtn" class="close-btn">&times;</button>
+      </div>
+      <form id="reviewForm">
+        <div class="modal-body">
+          
+          <div id="modalPatientSummary"></div>
+
+          <div style="margin-bottom:14px;">
+            <label style="font-weight:700; font-size:0.84rem;">Intake Triage Note:</label>
+            <div id="modalTriageNote" class="triage-note-box" style="max-height:160px; margin-top:4px;"></div>
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label for="reviewDoctorName">Reviewer Name & Designation *</label>
+              <input type="text" id="reviewDoctorName" class="form-control" placeholder="Dr. Anjali Mehta, MBBS / MD" required>
+            </div>
+            <div class="form-group">
+              <label for="reviewConfirmedCategory">Confirm / Adjust Priority Category</label>
+              <select id="reviewConfirmedCategory" class="form-control">
+                <option value="1">Category 1 (Immediate / Red)</option>
+                <option value="2">Category 2 (Very Urgent / Orange)</option>
+                <option value="3">Category 3 (Urgent / Yellow)</option>
+                <option value="4">Category 4 (Routine / Green)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-top:12px;">
+            <label for="reviewStatus">Review Status</label>
+            <select id="reviewStatus" class="form-control">
+              <option value="IN_REVIEW">In Review (Bedside evaluation ongoing)</option>
+              <option value="COMPLETED">Completed (Doctor examined patient)</option>
+            </select>
+          </div>
+
+          <div class="form-group" style="margin-top:12px;">
+            <label for="reviewNotes">Clinical Examination & Triage Notes</label>
+            <textarea id="reviewNotes" class="form-control" placeholder="Document clinical impressions, initial bedside instructions, or referrals..."></textarea>
+          </div>
+
+        </div>
+        <div class="modal-footer">
+          <button type="button" id="btnPrintModal" class="btn btn-secondary">🖨️ Print Summary</button>
+          <button type="button" id="modalCancelBtn" class="btn btn-secondary">Cancel</button>
+          <button type="submit" class="btn btn-primary">✓ Save Clinical Sign-Off</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Notifications -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- =========================================================================
+       FOOTER
+       ========================================================================= -->
+  <footer style="text-align:center; padding:20px; font-size:0.75rem; color:var(--text-muted); border-top:1px solid var(--border); background:#ffffff;">
+    <strong>TRIAGE-AI Prototype</strong> • Human-in-the-Loop Healthcare Triage Assistant • Strictly Non-Diagnostic Clinical Decision Support
+  </footer>
+
+  <!-- Scripts -->
+  <script src="/static/js/i18n.js"></script>
+  <script src="/static/js/speech.js"></script>
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

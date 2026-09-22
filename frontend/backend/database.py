@@ -1,0 +1,36 @@
+"""
+Database Connection & Session Management
+Initial configuration uses SQLite. Designed to easily switch to PostgreSQL
+by changing the DATABASE_URL environment variable in production.
+"""
+
+from sqlalchemy import create_engine
+from sqlalchemy.orm import declarative_base, sessionmaker
+from backend.config import settings
+
+# SQLite requires connect_args check_same_thread=False
+connect_args = {}
+if settings.DATABASE_URL.startswith("sqlite"):
+    connect_args["check_same_thread"] = False
+
+engine = create_engine(
+    settings.DATABASE_URL,
+    connect_args=connect_args,
+    echo=False  # Set to True for verbose SQL query debugging
+)
+
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Base class for SQLAlchemy ORM models
+Base = declarative_base()
+
+def get_db():
+    """
+    FastAPI dependency that yields an isolated database session per request,
+    ensuring connections are closed automatically when the request completes.
+    """
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
