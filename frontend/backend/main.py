@@ -60,7 +60,7 @@ app.include_router(translate_router)
 app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
 
 # Frontend directory paths
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 FRONTEND_DIR = os.path.join(BASE_DIR, "frontend")
 
 # Serve frontend static assets (CSS, JS)
